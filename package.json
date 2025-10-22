@@ -13,11 +13,11 @@
     "aml",
     "kyc"
   ],
-  "author": "nhamilton1",
+  "author": "Nick (https:github.com/nhamilton1)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nhamilton1/bitcoin-ofac-addresses.git"
+    "url": "git+https://github.com/nhamilton1/bitcoin-ofac-addresses.git"
   },
   "type": "module",
   "main": "./src/index.ts",
