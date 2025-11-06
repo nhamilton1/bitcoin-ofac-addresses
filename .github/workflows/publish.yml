@@ -57,5 +57,5 @@ jobs:
         run: ./script/publish.ts
         env:
           BITCOIN_OFAC_BUMP: ${{ inputs.bump }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
