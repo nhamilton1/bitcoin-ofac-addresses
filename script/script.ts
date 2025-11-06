@@ -57,7 +57,7 @@ export async function createRelease(version: string, addressCount: number) {
 ### Summary
 - Updated OFAC sanctioned Bitcoin addresses
 - Total addresses: **${addressCount}**
-- Data source: [OFAC SDN List](https://sanctionslistservice.ofac.treas.gov/)
+- Data source: [OFAC SDN List](https://sanctionslist.ofac.treas.gov/Home/SdnList)
 
 ### Installation
 \`\`\`bash
@@ -68,8 +68,8 @@ npm install bitcoin-ofac-addresses@${version}
 
 ### Usage
 \`\`\`typescript
-import { bitcoinAddresses } from "bitcoin-ofac-addresses/static";
-console.log(\`Loaded \${bitcoinAddresses.length} addresses\`);
+import { ofacAddresses } from "bitcoin-ofac-addresses/static";
+console.log(\`Loaded \${ofacAddresses.length} addresses\`);
 \`\`\`
 `;
 

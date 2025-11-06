@@ -50,12 +50,12 @@ console.log(`Is sanctioned: ${isSanctioned}`);
 Uses a pre-fetched snapshot (updated weekly):
 
 ```typescript
-import { bitcoinAddresses } from "bitcoin-ofac-addresses/static";
+import { ofacAddresses } from "bitcoin-ofac-addresses/static";
 
 // Instant access, no network request
-console.log(`Loaded ${bitcoinAddresses.length} addresses`);
+console.log(`Loaded ${ofacAddresses.length} addresses`);
 
-const isSanctioned = bitcoinAddresses.includes(
+const isSanctioned = ofacAddresses.includes(
   "12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h",
 );
 console.log(`Is sanctioned: ${isSanctioned}`);
@@ -87,7 +87,7 @@ Fetches the latest OFAC sanctioned Bitcoin addresses.
 
 **Throws:** Error if the OFAC data cannot be fetched or parsed
 
-### `bitcoinAddresses`
+### `ofacAddresses`
 
 Static export of Bitcoin addresses (updated weekly via GitHub Actions).
 
@@ -105,10 +105,10 @@ The static snapshot is automatically updated every Sunday at midnight UTC via Gi
 ### Simple Validation
 
 ```typescript
-import { bitcoinAddresses } from "bitcoin-ofac-addresses/static";
+import { ofacAddresses } from "bitcoin-ofac-addresses/static";
 
 function isAddressSanctioned(address: string): boolean {
-  return bitcoinAddresses.includes(address);
+  return ofacAddresses.includes(address);
 }
 
 console.log(isAddressSanctioned("12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h")); // true
@@ -193,6 +193,6 @@ This package is provided as-is for informational purposes. While we strive for a
 
 ## Links
 
-- [OFAC Sanctions List Service](https://sanctionslistservice.ofac.treas.gov/)
+- [OFAC Sanctions List Service](https://sanctionslist.ofac.treas.gov/Home/SdnList)
 - [GitHub Repository](https://github.com/nhamilton1/bitcoin-ofac-addresses)
 - [NPM Package](https://www.npmjs.com/package/bitcoin-ofac-addresses)

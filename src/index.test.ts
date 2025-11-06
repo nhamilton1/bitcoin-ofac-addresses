@@ -1,27 +1,27 @@
 import { describe, test, expect } from "bun:test";
 import { getBitcoinAddresses } from "./index";
-import { bitcoinAddresses } from "./static";
+import { ofacAddresses } from "./static";
 
-describe("bitcoinAddresses (static)", () => {
+describe("ofacAddresses (static)", () => {
   test("should export Bitcoin addresses", () => {
-    expect(bitcoinAddresses).toBeInstanceOf(Array);
-    expect(bitcoinAddresses.length).toBeGreaterThan(0);
+    expect(ofacAddresses).toBeInstanceOf(Array);
+    expect(ofacAddresses.length).toBeGreaterThan(0);
   });
 
   test("should contain valid Bitcoin addresses", () => {
-    expect(bitcoinAddresses.every((addr) => typeof addr === "string")).toBe(
+    expect(ofacAddresses.every((addr) => typeof addr === "string")).toBe(
       true,
     );
-    expect(bitcoinAddresses.every((addr) => addr.length > 0)).toBe(true);
+    expect(ofacAddresses.every((addr) => addr.length > 0)).toBe(true);
   });
 
   test("should contain known sanctioned address", () => {
-    expect(bitcoinAddresses).toContain("12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h");
+    expect(ofacAddresses).toContain("12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h");
   });
 
   test("should have expected count", () => {
-    expect(bitcoinAddresses.length).toBeGreaterThan(400);
-    expect(bitcoinAddresses.length).toBeLessThan(1000);
+    expect(ofacAddresses.length).toBeGreaterThan(400);
+    expect(ofacAddresses.length).toBeLessThan(1000);
   });
 });
 
