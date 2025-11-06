@@ -31,12 +31,12 @@
     "src"
   ],
   "scripts": {
-    "update": "bun run scripts/update-addresses.ts",
+    "update": "bun run script/update-addresses.ts",
     "typecheck": "tsgo --noEmit",
     "test": "bun test"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.3.0",
     "@typescript/native-preview": "7.0.0-dev.20251022.1"
   },
   "peerDependencies": {
