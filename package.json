@@ -1,6 +1,6 @@
 {
   "name": "bitcoin-ofac-addresses",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Fetch OFAC sanctioned Bitcoin addresses from official treasury.gov source. Zero dependencies.",
   "keywords": [
     "bitcoin",
