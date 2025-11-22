@@ -43,6 +43,7 @@ export async function commitAndTag(version: string) {
   const tagName = `v${version}`;
   await $`git config user.name "GitHub Actions"`;
   await $`git config user.email "actions@github.com"`;
+  await $`git pull --rebase origin master`;
   await $`git add package.json`;
   await $`git commit -m "chore: release v${version}"`;
   await $`git tag ${tagName}`;
