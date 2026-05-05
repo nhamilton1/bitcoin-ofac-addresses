@@ -1,15 +1,15 @@
 # bitcoin-ofac-addresses
 
-Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Zero dependencies, works with Bun, Node.js, and browsers.
+Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Zero runtime dependencies, works with Bun and modern TypeScript-aware runtimes/bundlers.
 
 ## Features
 
-- **Zero dependencies** - Uses native fetch API
+- **Zero runtime dependencies** - Uses the native fetch API
 - **Dual mode** - Async (fresh data) or static (cached snapshot)
 - **TypeScript native** - Full type safety
-- **Auto-updated** - Weekly GitHub Actions updates static data
+- **Auto-updated** - Daily GitHub Actions updates static data
 - **Official source** - Fetches from treasury.gov
-- **Universal** - Works with Bun, Node.js 18+, browsers
+- **Runtime-friendly** - Works best with Bun and TypeScript-aware tooling
 
 ## Installation
 
@@ -47,7 +47,7 @@ console.log(`Is sanctioned: ${isSanctioned}`);
 
 ### Static Mode (Fast, Cached)
 
-Uses a pre-fetched snapshot (updated weekly):
+Uses a pre-fetched snapshot (updated daily):
 
 ```typescript
 import { ofacAddresses } from "bitcoin-ofac-addresses/static";
@@ -74,7 +74,7 @@ console.log(`Is sanctioned: ${isSanctioned}`);
 
 - Speed is critical
 - Offline access is needed
-- Weekly updates are sufficient
+- Daily updates are sufficient
 - Building quick validation checks
 
 ## API
@@ -89,7 +89,7 @@ Fetches the latest OFAC sanctioned Bitcoin addresses.
 
 ### `ofacAddresses`
 
-Static export of Bitcoin addresses (updated weekly via GitHub Actions).
+Static export of Bitcoin addresses (updated daily via GitHub Actions).
 
 **Type:** `string[]` - Array of Bitcoin addresses
 
@@ -98,7 +98,7 @@ Static export of Bitcoin addresses (updated weekly via GitHub Actions).
 Data is fetched from the official OFAC Specially Designated Nationals (SDN) list:
 `https://sanctionslistservice.ofac.treas.gov/api/publicationpreview/exports/sdn_advanced.xml`
 
-The static snapshot is automatically updated every Sunday at midnight UTC via GitHub Actions.
+The static snapshot is automatically checked for updates every day at midnight UTC via GitHub Actions.
 
 ## Examples
 
@@ -138,25 +138,24 @@ const results = await validateAddresses([
 console.log(results);
 ```
 
-### Express.js API Endpoint
+### Bun API Endpoint
 
 ```typescript
-import express from "express";
 import { getBitcoinAddresses } from "bitcoin-ofac-addresses";
 
-const app = express();
+Bun.serve({
+  routes: {
+    "/check/:address": async (req) => {
+      const { address } = req.params;
+      const sanctionedAddresses = await getBitcoinAddresses();
 
-app.get("/check/:address", async (req, res) => {
-  const { address } = req.params;
-  const sanctionedAddresses = await getBitcoinAddresses();
-
-  res.json({
-    address,
-    isSanctioned: sanctionedAddresses.includes(address),
-  });
+      return Response.json({
+        address,
+        isSanctioned: sanctionedAddresses.includes(address),
+      });
+    },
+  },
 });
-
-app.listen(3000);
 ```
 
 ## Development
@@ -175,9 +174,9 @@ bun test
 
 ## How It Works
 
-1. **Async Mode**: Fetches the OFAC SDN XML file, parses it for Bitcoin addresses (XBT feature type), deduplicates and sorts them
+1. **Async Mode**: Fetches the OFAC SDN XML file, parses it for Bitcoin addresses (XBT feature type), and deduplicates them
 2. **Static Mode**: Imports a pre-generated JSON file containing the address list
-3. **Auto-Updates**: GitHub Actions runs weekly to keep the static data fresh
+3. **Auto-Updates**: GitHub Actions runs daily to keep the static data fresh
 
 ## License
 
