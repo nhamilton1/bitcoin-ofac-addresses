@@ -1,15 +1,15 @@
 # bitcoin-ofac-addresses
 
-Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Zero runtime dependencies, works with Bun and modern TypeScript-aware runtimes/bundlers.
+Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Zero runtime dependencies, works with Node.js, Bun, and bundlers.
 
 ## Features
 
 - **Zero runtime dependencies** - Uses the native fetch API
 - **Dual mode** - Async (fresh data) or static (cached snapshot)
-- **TypeScript native** - Full type safety
+- **TypeScript native** - Full type safety, ships type declarations
 - **Auto-updated** - Daily GitHub Actions updates static data
-- **Official source** - Fetches from treasury.gov
-- **Runtime-friendly** - Works best with Bun and TypeScript-aware tooling
+- **Official source** - Fetches from the OFAC Sanctions List Service (sanctionslistservice.ofac.treas.gov)
+- **Runtime-friendly** - Prebuilt ESM + type declarations for Node.js and bundlers; raw TypeScript for Bun
 
 ## Installation
 
@@ -61,6 +61,21 @@ const isSanctioned = ofacAddresses.includes(
 console.log(`Is sanctioned: ${isSanctioned}`);
 ```
 
+### Raw JSON (any runtime)
+
+The address list is also exported as plain JSON, so runtimes that can't load
+TypeScript directly (e.g. plain Node.js) can still consume the data:
+
+```javascript
+// CommonJS (any Node version)
+const addresses = require("bitcoin-ofac-addresses/addresses.json");
+```
+
+```typescript
+// ESM with import attributes (Bun, Node 20.10+)
+import addresses from "bitcoin-ofac-addresses/addresses.json" with { type: "json" };
+```
+
 ## When to Use Each Mode
 
 ### Use Async Mode when:
@@ -81,11 +96,22 @@ console.log(`Is sanctioned: ${isSanctioned}`);
 
 ### `getBitcoinAddresses()`
 
-Fetches the latest OFAC sanctioned Bitcoin addresses.
+Fetches the latest OFAC sanctioned Bitcoin addresses. Note that this downloads
+the full SDN advanced XML (tens of MB), so prefer the static export when
+freshness within a day is acceptable.
 
-**Returns:** `Promise<string[]>` - Array of Bitcoin addresses
+**Returns:** `Promise<string[]>` - Sorted array of Bitcoin addresses
 
 **Throws:** Error if the OFAC data cannot be fetched or parsed
+
+### `parseBitcoinAddresses(xml)`
+
+Extracts Bitcoin (XBT) addresses from SDN advanced XML you've already
+downloaded. Useful if you fetch/cache the OFAC feed yourself.
+
+**Returns:** `string[]` - Sorted, deduplicated array of Bitcoin addresses
+
+**Throws:** Error if the XML does not contain the Bitcoin feature type
 
 ### `ofacAddresses`
 
@@ -166,10 +192,22 @@ Bun.serve({
 bun run update
 ```
 
+### Build
+
+```bash
+bun run build
+```
+
+Produces the prebuilt ESM + declaration files in `dist/` that Node.js
+consumers use. Run automatically during publishing.
+
 ### Run Tests
 
 ```bash
 bun test
+
+# include the live-network test (downloads the full SDN XML)
+OFAC_LIVE_TEST=1 bun test
 ```
 
 ## How It Works

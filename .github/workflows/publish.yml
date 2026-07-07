@@ -25,16 +25,21 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # branch tip, not github.sha — the update workflow pushes a commit after this run is triggered
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 

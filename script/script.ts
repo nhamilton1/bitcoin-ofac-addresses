@@ -41,12 +41,30 @@ console.log(`Script config:`, JSON.stringify(Script, null, 2));
 
 export async function commitAndTag(version: string) {
   const tagName = `v${version}`;
+  const commitMessage = `chore: release v${version}`;
   await $`git config user.name "GitHub Actions"`;
   await $`git config user.email "actions@github.com"`;
+
+  // commit before pull --rebase: git refuses to rebase onto a dirty tree
+  const dirty = (await $`git status --porcelain package.json`.text()).trim();
+  if (dirty) {
+    await $`git add package.json`;
+    await $`git commit -m ${commitMessage}`;
+  } else {
+    console.log("package.json already committed at this version; skipping commit");
+  }
+
   await $`git pull --rebase origin master`;
-  await $`git add package.json`;
-  await $`git commit -m "chore: release v${version}"`;
-  await $`git tag ${tagName}`;
+
+  const tagExists =
+    (await $`git rev-parse -q --verify refs/tags/${tagName}`.nothrow())
+      .exitCode === 0;
+  if (!tagExists) {
+    await $`git tag ${tagName}`;
+  } else {
+    console.log(`Tag ${tagName} already exists; skipping tag`);
+  }
+
   await $`git push origin HEAD --tags`;
   return tagName;
 }

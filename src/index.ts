@@ -1,10 +1,7 @@
 const SDN_URL =
   "https://sanctionslistservice.ofac.treas.gov/api/publicationpreview/exports/sdn_advanced.xml";
 
-export async function getBitcoinAddresses(): Promise<string[]> {
-  const response = await fetch(SDN_URL);
-  const xml = await response.text();
-
+export function parseBitcoinAddresses(xml: string): string[] {
   const featureTypeMatch = xml.match(
     /<FeatureType ID="(\d+)"[^>]*>Digital Currency Address - XBT<\/FeatureType>/,
   );
@@ -24,13 +21,33 @@ export async function getBitcoinAddresses(): Promise<string[]> {
     if (nextFeatureEnd === -1) continue;
 
     const featureSection = part.slice(0, nextFeatureEnd);
-    const versionMatch = featureSection.match(
-      /<VersionDetail[^>]*>(.*?)<\/VersionDetail>/,
+    // [^<] so a self-closing <VersionDetail/> can't make the capture swallow markup
+    const versionMatches = featureSection.matchAll(
+      /<VersionDetail[^>]*>([^<]*)<\/VersionDetail>/g,
     );
-    if (versionMatch && versionMatch[1]) {
-      addresses.add(versionMatch[1]);
+    for (const versionMatch of versionMatches) {
+      const address = versionMatch[1]?.trim();
+      if (address) {
+        addresses.add(address);
+        break;
+      }
     }
   }
 
-  return Array.from(addresses);
+  return Array.from(addresses).sort();
+}
+
+export async function getBitcoinAddresses(): Promise<string[]> {
+  const response = await fetch(SDN_URL, {
+    headers: {
+      "User-Agent":
+        "bitcoin-ofac-addresses (+https://github.com/nhamilton1/bitcoin-ofac-addresses)",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch OFAC SDN list: ${response.status} ${response.statusText}`,
+    );
+  }
+  return parseBitcoinAddresses(await response.text());
 }
