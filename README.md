@@ -240,7 +240,7 @@ OFAC_LIVE_TEST=1 bun test
 
 1. **Effect Mode**: Fetches the OFAC SDN XML through an injected service, parses XBT addresses, and returns typed failures
 2. **Static Mode**: Imports a pre-generated JSON file containing the address list
-3. **Auto-Updates**: GitHub Actions downloads the compressed SDN archive (a fraction of the raw XML size), extracts XBT addresses, and refreshes the static data daily
+3. **Auto-Updates**: GitHub Actions downloads the compressed SDN archive (a fraction of the raw XML size), extracts XBT addresses, and refreshes the static data daily. If OFAC's anti-bot gate blocks the advanced export, the updater falls back to OFAC's older SDN export, and failed runs are automatically retried later on a fresh runner
 
 ## License
 

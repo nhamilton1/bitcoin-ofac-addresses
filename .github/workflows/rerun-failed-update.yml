@@ -1,0 +1,55 @@
+name: Rerun failed OFAC update
+
+# OFAC's WAF flags egress IPs intermittently, so a failed update usually means
+# the runner drew a bad IP. Re-running later lands on a fresh runner (new IP).
+# Reruns of the same run re-fire this workflow, so the attempt cap below is
+# the loop guard. Only the update job is rerun — publish failures are real
+# failures that should stay red and be investigated.
+
+on:
+  workflow_run:
+    workflows: ["Update OFAC Bitcoin Addresses"]
+    types: [completed]
+
+permissions:
+  actions: write
+
+concurrency:
+  group: rerun-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check whether a rerun is warranted
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          attempt=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .run_attempt)
+          update_failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --jq '[.jobs[] | select(.name == "update" and .conclusion == "failure")] | length')
+          echo "attempt=$attempt update_failed=$update_failed"
+          if [ "$update_failed" -eq 1 ] && [ "$attempt" -lt 4 ]; then
+            echo "rerun=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not rerunning: publish-side failure or attempt cap reached"
+          fi
+
+      # The flag is per-IP and short-lived; waiting improves the odds that the
+      # next attempt gets an unflagged runner.
+      - name: Wait for a fresh runner pool
+        if: steps.check.outputs.rerun == 'true'
+        run: sleep 15m
+
+      - name: Rerun the failed update job
+        if: steps.check.outputs.rerun == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh run rerun "$RUN_ID" --repo "$REPO" --failed

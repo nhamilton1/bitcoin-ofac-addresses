@@ -1,5 +1,6 @@
 import { Effect, Schedule } from "effect";
 import { OfacAccessDeniedError, OfacHttpStatusError } from "../src/index.ts";
+import { getBitcoinAddressesFromFallback } from "../src/fallback.ts";
 import { getBitcoinAddressesFromZip } from "../src/zip.ts";
 import { ScriptError } from "./script.ts";
 
@@ -21,7 +22,27 @@ const isTransient = (error: unknown) =>
     error.status < 500
   );
 
-const fetchAddresses = getBitcoinAddressesFromZip().pipe(
+// OFAC's WAF intermittently challenges the advanced exports per egress IP.
+// When that happens, fall back to the older SDN export, which is served from
+// the same official source under a different rule bucket.
+const fetchFromOfac = getBitcoinAddressesFromZip().pipe(
+  Effect.catch((error) => {
+    const blocked =
+      error instanceof OfacAccessDeniedError ||
+      (error instanceof OfacHttpStatusError && error.status === 403);
+    return blocked
+      ? Effect.gen(function* () {
+          yield* Effect.logWarning(
+            "Advanced export blocked by WAF; falling back to the older SDN export",
+            { error: error.message },
+          );
+          return yield* getBitcoinAddressesFromFallback();
+        })
+      : Effect.fail(error);
+  }),
+);
+
+const fetchAddresses = fetchFromOfac.pipe(
   Effect.tapError((error) =>
     isTransient(error)
       ? Effect.logWarning("OFAC fetch attempt failed; retrying per schedule", {
