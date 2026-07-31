@@ -28,6 +28,8 @@ jobs:
         run: bun install
 
       - name: Update addresses
+        # the updater retries transient OFAC failures internally via Effect
+        timeout-minutes: 25
         run: bun run update
 
       - name: Check whether a publish is needed

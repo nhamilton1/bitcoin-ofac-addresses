@@ -1,12 +1,13 @@
 # bitcoin-ofac-addresses
 
-Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Zero runtime dependencies, works with Node.js, Bun, and bundlers.
+Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from the official U.S. Treasury source. Built with Effect v4 and works with Node.js, Bun, and bundlers.
 
 ## Features
 
-- **Zero runtime dependencies** - Uses the native fetch API
-- **Dual mode** - Async (fresh data) or static (cached snapshot)
-- **TypeScript native** - Full type safety, ships type declarations
+- **Typed failures** - Network, HTTP status, response body, and XML parsing errors are distinct tagged errors
+- **Dependency injection** - Replace the HTTP service with an Effect layer in tests or applications
+- **Dual mode** - Effect-based live data or a static cached snapshot
+- **TypeScript native** - Full Effect v4 types and shipped declarations
 - **Auto-updated** - Daily GitHub Actions updates static data
 - **Official source** - Fetches from the OFAC Sanctions List Service (sanctionslistservice.ofac.treas.gov)
 - **Runtime-friendly** - Prebuilt ESM + type declarations for Node.js and bundlers; raw TypeScript for Bun
@@ -15,28 +16,34 @@ Fetch OFAC (Office of Foreign Assets Control) sanctioned Bitcoin addresses from 
 
 ```bash
 # Bun
-bun add bitcoin-ofac-addresses
+bun add bitcoin-ofac-addresses effect@4.0.0-beta.101
 
 # npm
-npm install bitcoin-ofac-addresses
+npm install bitcoin-ofac-addresses effect@4.0.0-beta.101
 
 # pnpm
-pnpm add bitcoin-ofac-addresses
+pnpm add bitcoin-ofac-addresses effect@4.0.0-beta.101
 
 # yarn
-yarn add bitcoin-ofac-addresses
+yarn add bitcoin-ofac-addresses effect@4.0.0-beta.101
 ```
 
 ## Usage
 
-### Async Mode (Fresh Data)
+### Effect Mode (Fresh Data)
 
 Fetches the latest sanctioned addresses directly from OFAC:
 
 ```typescript
-import { getBitcoinAddresses } from "bitcoin-ofac-addresses";
+import { Effect } from "effect";
+import {
+  getBitcoinAddresses,
+  OfacHttpClientLive,
+} from "bitcoin-ofac-addresses";
 
-const addresses = await getBitcoinAddresses();
+const addresses = await Effect.runPromise(
+  getBitcoinAddresses().pipe(Effect.provide(OfacHttpClientLive)),
+);
 console.log(`Found ${addresses.length} sanctioned Bitcoin addresses`);
 
 // Check if an address is sanctioned
@@ -78,7 +85,7 @@ import addresses from "bitcoin-ofac-addresses/addresses.json" with { type: "json
 
 ## When to Use Each Mode
 
-### Use Async Mode when:
+### Use Effect Mode when:
 
 - You need the absolute latest data
 - Compliance is critical
@@ -100,24 +107,30 @@ Fetches the latest OFAC sanctioned Bitcoin addresses. Note that this downloads
 the full SDN advanced XML (tens of MB), so prefer the static export when
 freshness within a day is acceptable.
 
-**Returns:** `Promise<string[]>` - Sorted array of Bitcoin addresses
+**Type:** `Effect.Effect<ReadonlyArray<string>, OfacTransportError | OfacHttpStatusError | OfacBodyError | OfacParseError, OfacHttpClient>`
 
-**Throws:** Error if the OFAC data cannot be fetched or parsed
+Provide `OfacHttpClientLive` for native fetch, or provide your own `OfacHttpClient` layer. Effect interruption cancels an in-progress response body download.
 
 ### `parseBitcoinAddresses(xml)`
 
 Extracts Bitcoin (XBT) addresses from SDN advanced XML you've already
 downloaded. Useful if you fetch/cache the OFAC feed yourself.
 
-**Returns:** `string[]` - Sorted, deduplicated array of Bitcoin addresses
+**Type:** `Effect.Effect<ReadonlyArray<string>, OfacParseError>` - Sorted, deduplicated Bitcoin addresses or a typed parse failure
 
-**Throws:** Error if the XML does not contain the Bitcoin feature type
+### Errors
+
+- `OfacTransportError` - The HTTP request could not be completed
+- `OfacHttpStatusError` - OFAC returned a non-success status
+- `OfacBodyError` - The response body could not be read
+- `OfacParseError` - The response did not contain the expected Bitcoin data
+- `OfacAccessDeniedError` - OFAC's AWS WAF served an anti-bot challenge instead of the feed. OFAC currently gates programmatic access this way; use the static export as a fallback when live fetching is blocked
 
 ### `ofacAddresses`
 
 Static export of Bitcoin addresses (updated daily via GitHub Actions).
 
-**Type:** `string[]` - Array of Bitcoin addresses
+**Type:** `ReadonlyArray<string>` - Array of Bitcoin addresses
 
 ## Data Source
 
@@ -144,22 +157,29 @@ console.log(isAddressSanctioned("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")); // false
 ### Batch Validation
 
 ```typescript
-import { getBitcoinAddresses } from "bitcoin-ofac-addresses";
+import { Effect } from "effect";
+import {
+  getBitcoinAddresses,
+  OfacHttpClientLive,
+} from "bitcoin-ofac-addresses";
 
-async function validateAddresses(addresses: string[]) {
-  const sanctionedAddresses = await getBitcoinAddresses();
-  const sanctionedSet = new Set(sanctionedAddresses);
+const validateAddresses = (addresses: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const sanctionedAddresses = yield* getBitcoinAddresses();
+    const sanctionedSet = new Set(sanctionedAddresses);
 
-  return addresses.map((addr) => ({
-    address: addr,
-    isSanctioned: sanctionedSet.has(addr),
-  }));
-}
+    return addresses.map((address) => ({
+      address,
+      isSanctioned: sanctionedSet.has(address),
+    }));
+  });
 
-const results = await validateAddresses([
-  "12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h",
-  "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-]);
+const results = await Effect.runPromise(
+  validateAddresses([
+    "12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h",
+    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+  ]).pipe(Effect.provide(OfacHttpClientLive)),
+);
 
 console.log(results);
 ```
@@ -167,13 +187,19 @@ console.log(results);
 ### Bun API Endpoint
 
 ```typescript
-import { getBitcoinAddresses } from "bitcoin-ofac-addresses";
+import { Effect } from "effect";
+import {
+  getBitcoinAddresses,
+  OfacHttpClientLive,
+} from "bitcoin-ofac-addresses";
 
 Bun.serve({
   routes: {
     "/check/:address": async (req) => {
       const { address } = req.params;
-      const sanctionedAddresses = await getBitcoinAddresses();
+      const sanctionedAddresses = await Effect.runPromise(
+        getBitcoinAddresses().pipe(Effect.provide(OfacHttpClientLive)),
+      );
 
       return Response.json({
         address,
@@ -212,9 +238,9 @@ OFAC_LIVE_TEST=1 bun test
 
 ## How It Works
 
-1. **Async Mode**: Fetches the OFAC SDN XML file, parses it for Bitcoin addresses (XBT feature type), and deduplicates them
+1. **Effect Mode**: Fetches the OFAC SDN XML through an injected service, parses XBT addresses, and returns typed failures
 2. **Static Mode**: Imports a pre-generated JSON file containing the address list
-3. **Auto-Updates**: GitHub Actions runs daily to keep the static data fresh
+3. **Auto-Updates**: GitHub Actions downloads the compressed SDN archive (a fraction of the raw XML size), extracts XBT addresses, and refreshes the static data daily
 
 ## License
 

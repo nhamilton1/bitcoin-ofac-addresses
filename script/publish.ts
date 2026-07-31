@@ -1,50 +1,105 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun";
-import { Script, commitAndTag, createRelease } from "./script.ts";
-
-console.log("=== Publishing bitcoin-ofac-addresses ===\n");
+import { Effect, Schema } from "effect";
+import {
+  commitAndTag,
+  createRelease,
+  getScriptConfig,
+  ScriptError,
+} from "./script.ts";
 
 const rootDir = `${import.meta.dir}/..`;
 const packageJsonPath = `${rootDir}/package.json`;
 const addressesPath = `${rootDir}/src/data/addresses.json`;
+const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const AddressList = Schema.Array(Schema.String);
 
-const packageJson = await Bun.file(packageJsonPath).json();
+const readJson = (path: string) =>
+  Effect.tryPromise({
+    try: () => Bun.file(path).json(),
+    catch: (cause) =>
+      new ScriptError({
+        operation: `read ${path}`,
+        message: String(cause),
+      }),
+  });
 
-packageJson.version = Script.version;
-await Bun.file(packageJsonPath).write(
-  JSON.stringify(packageJson, null, 2) + "\n",
-);
-console.log(`Updated package.json to version ${Script.version}`);
+const runCommand = (operation: string, command: () => PromiseLike<unknown>) =>
+  Effect.tryPromise({
+    try: command,
+    catch: (cause) =>
+      new ScriptError({ operation, message: String(cause) }),
+  });
 
-const addresses = await Bun.file(addressesPath).json();
-const addressCount = addresses.length;
-console.log(`Found ${addressCount} OFAC sanctioned addresses`);
+const program = Effect.gen(function* () {
+  yield* Effect.logInfo("Publishing bitcoin-ofac-addresses");
+  const config = yield* getScriptConfig();
+  yield* Effect.logInfo("Loaded release configuration", config);
 
-console.log("\n=== Running tests ===");
-await $`bun test`;
-console.log("Tests passed");
+  const packageJson = yield* readJson(packageJsonPath).pipe(
+    Effect.flatMap((value) =>
+      Schema.decodeUnknownEffect(JsonObject)(value).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ScriptError({
+              operation: "decode package.json",
+              message: String(cause),
+            }),
+        ),
+      ),
+    ),
+  );
+  const updatedPackageJson = { ...packageJson, version: config.version };
+  yield* Effect.tryPromise({
+    try: () =>
+      Bun.write(
+        packageJsonPath,
+        `${JSON.stringify(updatedPackageJson, null, 2)}\n`,
+      ),
+    catch: (cause) =>
+      new ScriptError({
+        operation: "update package.json version",
+        message: String(cause),
+      }),
+  });
+  yield* Effect.logInfo("Updated package.json", { version: config.version });
 
-console.log("\n=== Running typecheck ===");
-await $`bun run typecheck`;
-console.log("Typecheck passed");
+  const addresses = yield* readJson(addressesPath).pipe(
+    Effect.flatMap((value) =>
+      Schema.decodeUnknownEffect(AddressList)(value).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ScriptError({
+              operation: "decode addresses",
+              message: String(cause),
+            }),
+        ),
+      ),
+    ),
+  );
+  yield* Effect.logInfo("Loaded OFAC address snapshot", {
+    addressCount: addresses.length,
+  });
 
-console.log("\n=== Building dist ===");
-await $`bun run build`;
-console.log("Build complete");
+  yield* runCommand("run tests", () => $`bun test`);
+  yield* runCommand("run typecheck", () => $`bun run typecheck`);
+  yield* runCommand("build package", () => $`bun run build`);
 
-// commit/tag before the irreversible npm publish so failed runs retry cleanly
-console.log("\n=== Creating git tag ===");
-const tagName = await commitAndTag(Script.version);
-console.log(`Created and pushed tag: ${tagName}`);
+  // Tag first so a failed publish can be retried without another version bump.
+  const tagName = yield* commitAndTag(config.version);
+  yield* Effect.logInfo("Created and pushed release tag", { tagName });
 
-console.log("\n=== Publishing to npm ===");
-process.chdir(rootDir);
-await $`bun publish --access public`;
-console.log(`Published to npm: bitcoin-ofac-addresses@${Script.version}`);
+  yield* createRelease(config.version, addresses.length);
+  yield* Effect.logInfo("Created GitHub release", { tagName });
 
-console.log("\n=== Creating GitHub release ===");
-await createRelease(Script.version, addressCount);
-console.log(`Created GitHub release: ${tagName}`);
+  yield* runCommand(
+    "publish npm package",
+    () => $`bun publish --access public`.cwd(rootDir),
+  );
+  yield* Effect.logInfo("Published npm package", {
+    package: `bitcoin-ofac-addresses@${config.version}`,
+  });
+});
 
-console.log("\n=== ✓ Publishing complete ===");
+await Effect.runPromise(program);
